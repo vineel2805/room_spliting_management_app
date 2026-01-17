@@ -23,13 +23,23 @@ const EPSILON = 0.01; // Floating point threshold for comparisons
 /**
  * LAYER 1: Generate Obligation Ledger from expenses
  * 
- * For each expense:
- *   - Calculate each beneficiary's share
- *   - For each payer who paid:
- *     - Distribute their payment to beneficiaries proportionally
- *     - If payer paid for someone else's share → that person owes the payer
+ * TRUE OBLIGATION MODEL (per-expense settlement):
+ *   For each expense:
+ *   1. Calculate each person's share (what they OWE) - supports equal AND unequal splits
+ *   2. Record what each person PAID
+ *   3. net = paid - owed
+ *      - net > 0 → creditor (overpaid)
+ *      - net < 0 → debtor (underpaid)
+ *   4. Match debtors to creditors using greedy algorithm PER EXPENSE
+ *   5. Generate discrete obligations: debtor → creditor : amount
  * 
- * @returns {Array} Array of obligations: { from, to, amount }
+ * This produces REAL obligations that are:
+ *   ✅ Auditable per expense ("You owe X for Rice")
+ *   ✅ Support unequal splits (custom shareAmount)
+ *   ✅ Can be partially settled
+ *   ✅ Match real-world understanding
+ * 
+ * @returns {Array} Array of obligations: { from, to, amount, expenseId, expenseName }
  */
 export const generateObligations = (expenses, members, beneficiariesMap, paymentsMap, year, month) => {
   const obligations = [];
@@ -50,51 +60,99 @@ export const generateObligations = (expenses, members, beneficiariesMap, payment
     
     if (beneficiaries.length === 0 || payments.length === 0) continue;
     
-    // Calculate each beneficiary's share (equal split)
-    const sharePerPerson = expense.totalAmount / beneficiaries.length;
+    const totalAmount = expense.totalAmount;
     
-    // Create a map of beneficiary shares
+    // Step 1: Determine each beneficiary's ACTUAL share
+    // Check if beneficiaries have explicit shareAmount (unequal split)
+    // Otherwise, use equal split
     const beneficiaryShares = {};
-    beneficiaries.forEach(b => {
-      beneficiaryShares[b.memberId] = sharePerPerson;
+    const hasCustomShares = beneficiaries.some(b => 
+      b.shareAmount !== undefined && b.shareAmount !== null
+    );
+    
+    if (hasCustomShares) {
+      // Unequal split: use explicit share amounts
+      beneficiaries.forEach(b => {
+        beneficiaryShares[b.memberId] = b.shareAmount || 0;
+      });
+    } else {
+      // Equal split
+      const equalShare = totalAmount / beneficiaries.length;
+      beneficiaries.forEach(b => {
+        beneficiaryShares[b.memberId] = equalShare;
+      });
+    }
+    
+    // Step 2: Build payment map (what each person actually paid)
+    const paidAmounts = {};
+    payments.forEach(p => {
+      paidAmounts[p.memberId] = (paidAmounts[p.memberId] || 0) + p.paidAmount;
     });
     
-    // For each payer, generate obligations
-    for (const payment of payments) {
-      const payerId = payment.memberId;
-      const paidAmount = payment.paidAmount;
+    // Step 3: Calculate net position for each participant in THIS expense
+    // Collect all participants (beneficiaries + payers)
+    const allParticipantIds = new Set([
+      ...beneficiaries.map(b => b.memberId),
+      ...payments.map(p => p.memberId)
+    ]);
+    
+    const creditors = []; // net > 0 (overpaid, should receive)
+    const debtors = [];   // net < 0 (underpaid, should pay)
+    
+    allParticipantIds.forEach(memberId => {
+      const owed = beneficiaryShares[memberId] || 0;
+      const paid = paidAmounts[memberId] || 0;
+      const net = paid - owed;
       
-      if (paidAmount <= 0) continue;
-      
-      // The payer's payment covers beneficiaries' shares proportionally
-      // For simplicity with equal split: payer covers shares in order of beneficiaries
-      // Each beneficiary who is NOT the payer owes the payer for their share
-      
-      // Calculate how much of the payer's payment goes to each beneficiary
-      // Payment is distributed proportionally to cover the expense
-      const totalExpense = expense.totalAmount;
-      const payerCoverageRatio = paidAmount / totalExpense;
-      
-      for (const beneficiary of beneficiaries) {
-        const beneficiaryId = beneficiary.memberId;
-        
-        // Skip if beneficiary is the payer (you don't owe yourself)
-        if (beneficiaryId === payerId) continue;
-        
-        // The amount this beneficiary owes to this payer
-        // = beneficiary's share × (payer's payment / total expense)
-        const owedAmount = sharePerPerson * payerCoverageRatio;
-        
-        if (owedAmount > EPSILON) {
-          obligations.push({
-            from: beneficiaryId,
-            fromName: memberNameMap[beneficiaryId],
-            to: payerId,
-            toName: memberNameMap[payerId],
-            amount: owedAmount
-          });
-        }
+      if (net > EPSILON) {
+        creditors.push({
+          memberId,
+          name: memberNameMap[memberId],
+          amount: net // how much they should receive
+        });
+      } else if (net < -EPSILON) {
+        debtors.push({
+          memberId,
+          name: memberNameMap[memberId],
+          amount: Math.abs(net) // how much they should pay
+        });
       }
+    });
+    
+    // Step 4: Generate obligations using greedy matching FOR THIS EXPENSE
+    // Sort: creditors DESC, debtors DESC (largest amounts first)
+    creditors.sort((a, b) => b.amount - a.amount);
+    debtors.sort((a, b) => b.amount - a.amount);
+    
+    let i = 0; // creditor index
+    let j = 0; // debtor index
+    
+    while (i < creditors.length && j < debtors.length) {
+      const creditor = creditors[i];
+      const debtor = debtors[j];
+      
+      // Transfer the minimum of what creditor is owed and what debtor owes
+      const transferAmount = Math.min(creditor.amount, debtor.amount);
+      
+      if (transferAmount > EPSILON) {
+        obligations.push({
+          from: debtor.memberId,
+          fromName: debtor.name,
+          to: creditor.memberId,
+          toName: creditor.name,
+          amount: Math.round(transferAmount * 100) / 100,
+          expenseId: expense.id,
+          expenseName: expense.name || expense.description || 'Expense'
+        });
+      }
+      
+      // Reduce remaining amounts
+      creditor.amount -= transferAmount;
+      debtor.amount -= transferAmount;
+      
+      // Move to next when fully settled
+      if (creditor.amount < EPSILON) i++;
+      if (debtor.amount < EPSILON) j++;
     }
   }
   
