@@ -4,6 +4,7 @@ import { useRoom } from '../context/RoomContext';
 import { calculateMonthlyTotals, calculateRoomTotal } from '../services/calculationService';
 import GradientHeader from '../components/GradientHeader';
 import PrimaryButton from '../components/PrimaryButton';
+import MemberDetailModal from '../components/MemberDetailModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 const HomeScreen = () => {
@@ -25,6 +26,7 @@ const HomeScreen = () => {
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
 
   const { beneficiariesMap, paymentsMap } = expenseDetails;
 
@@ -229,13 +231,20 @@ const HomeScreen = () => {
             <h3 className="text-lg font-semibold text-gray-900 mb-3">Member Summary</h3>
             <div className="space-y-3 mb-6">
               {Object.values(memberTotals).map(member => (
-                <div key={member.memberId} className="bg-white rounded-2xl p-4 shadow-sm">
+                <div 
+                  key={member.memberId} 
+                  className="bg-white rounded-2xl p-4 shadow-sm cursor-pointer hover:bg-gray-50 active:scale-[0.99] transition-all"
+                  onClick={() => setSelectedMember(member)}
+                >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
                         {member.name.charAt(0).toUpperCase()}
                       </div>
-                      <p className="font-semibold text-gray-900">{member.name}</p>
+                      <div>
+                        <p className="font-semibold text-gray-900">{member.name}</p>
+                        <p className="text-xs text-gray-400">Tap for details</p>
+                      </div>
                     </div>
                     <span className={`text-sm font-bold px-3 py-1 rounded-full ${
                       member.balance > 0.01 
@@ -296,6 +305,19 @@ const HomeScreen = () => {
           </>
         )}
       </div>
+
+      {/* Member Detail Modal */}
+      <MemberDetailModal
+        isOpen={!!selectedMember}
+        onClose={() => setSelectedMember(null)}
+        member={selectedMember}
+        memberTotals={memberTotals}
+        expenses={expenses}
+        members={members}
+        beneficiariesMap={beneficiariesMap}
+        paymentsMap={paymentsMap}
+        selectedMonth={selectedMonth}
+      />
     </div>
   );
 };

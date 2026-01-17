@@ -142,7 +142,7 @@ export const generateObligations = (expenses, members, beneficiariesMap, payment
           toName: creditor.name,
           amount: Math.round(transferAmount * 100) / 100,
           expenseId: expense.id,
-          expenseName: expense.name || expense.description || 'Expense'
+          expenseName: expense.itemName || expense.name || expense.description || 'Expense'
         });
       }
       
@@ -441,5 +441,143 @@ export const getSummaryStats = (memberTotals) => {
     totalSpends: Math.round(totalSpends * 100) / 100,
     totalToReceive: Math.round(totalToReceive * 100) / 100,
     totalToPay: Math.round(totalToPay * 100) / 100
+  };
+};
+
+/**
+ * Get detailed expense breakdown for a specific member
+ * Shows each expense they participated in with their share and payment
+ * 
+ * @param {string} memberId - The member's ID
+ * @param {Array} expenses - All expenses
+ * @param {Object} beneficiariesMap - Map of expenseId to beneficiaries
+ * @param {Object} paymentsMap - Map of expenseId to payments
+ * @param {number} year - Year to filter
+ * @param {number} month - Month to filter (0-11)
+ * @returns {Object} Member's expense breakdown
+ */
+export const getMemberExpenseBreakdown = (memberId, expenses, beneficiariesMap, paymentsMap, year, month) => {
+  // Filter expenses for the selected month
+  const monthlyExpenses = expenses.filter(expense => {
+    const expenseDate = expense.date?.toDate ? expense.date.toDate() : new Date(expense.date);
+    return expenseDate.getFullYear() === year && expenseDate.getMonth() === month;
+  });
+  
+  const breakdown = [];
+  
+  for (const expense of monthlyExpenses) {
+    const beneficiaries = beneficiariesMap[expense.id] || [];
+    const payments = paymentsMap[expense.id] || [];
+    
+    // Check if member is a beneficiary or payer
+    const isBeneficiary = beneficiaries.some(b => b.memberId === memberId);
+    const memberPayment = payments.find(p => p.memberId === memberId);
+    const isPayer = memberPayment && memberPayment.paidAmount > 0;
+    
+    // Skip if member is not involved in this expense
+    if (!isBeneficiary && !isPayer) continue;
+    
+    // Calculate member's share (what they should pay)
+    let memberShare = 0;
+    if (isBeneficiary) {
+      const beneficiary = beneficiaries.find(b => b.memberId === memberId);
+      const hasCustomShares = beneficiaries.some(b => 
+        b.shareAmount !== undefined && b.shareAmount !== null
+      );
+      
+      if (hasCustomShares && beneficiary.shareAmount !== undefined) {
+        memberShare = beneficiary.shareAmount;
+      } else {
+        memberShare = expense.totalAmount / beneficiaries.length;
+      }
+    }
+    
+    // Calculate what member paid
+    const memberPaid = isPayer ? memberPayment.paidAmount : 0;
+    
+    // Calculate net for this expense
+    const net = memberPaid - memberShare;
+    
+    breakdown.push({
+      expenseId: expense.id,
+      expenseName: expense.itemName || expense.name || expense.description || 'Expense',
+      expenseDate: expense.date?.toDate ? expense.date.toDate() : new Date(expense.date),
+      totalAmount: expense.totalAmount,
+      memberShare: Math.round(memberShare * 100) / 100,
+      memberPaid: Math.round(memberPaid * 100) / 100,
+      net: Math.round(net * 100) / 100,
+      isBeneficiary,
+      isPayer
+    });
+  }
+  
+  // Sort by date (most recent first)
+  breakdown.sort((a, b) => b.expenseDate - a.expenseDate);
+  
+  return breakdown;
+};
+
+/**
+ * Get member's obligations (who they owe / who owes them)
+ * Uses the obligation ledger to show per-expense obligations
+ */
+export const getMemberObligations = (memberId, obligations) => {
+  const owes = []; // What this member owes to others
+  const owed = []; // What others owe to this member
+  
+  for (const obligation of obligations) {
+    if (obligation.from === memberId) {
+      // This member owes someone
+      owes.push({
+        toMemberId: obligation.to,
+        toName: obligation.toName,
+        amount: obligation.amount,
+        expenseId: obligation.expenseId,
+        expenseName: obligation.expenseName
+      });
+    } else if (obligation.to === memberId) {
+      // Someone owes this member
+      owed.push({
+        fromMemberId: obligation.from,
+        fromName: obligation.fromName,
+        amount: obligation.amount,
+        expenseId: obligation.expenseId,
+        expenseName: obligation.expenseName
+      });
+    }
+  }
+  
+  // Aggregate by person (sum up all obligations to/from same person)
+  const aggregateByPerson = (items, personIdKey, personNameKey) => {
+    const aggregated = {};
+    items.forEach(item => {
+      const personId = item[personIdKey];
+      if (!aggregated[personId]) {
+        aggregated[personId] = {
+          memberId: personId,
+          name: item[personNameKey],
+          totalAmount: 0,
+          expenses: []
+        };
+      }
+      aggregated[personId].totalAmount += item.amount;
+      aggregated[personId].expenses.push({
+        expenseId: item.expenseId,
+        expenseName: item.expenseName,
+        amount: item.amount
+      });
+    });
+    
+    // Round totals
+    Object.values(aggregated).forEach(a => {
+      a.totalAmount = Math.round(a.totalAmount * 100) / 100;
+    });
+    
+    return Object.values(aggregated);
+  };
+  
+  return {
+    owes: aggregateByPerson(owes, 'toMemberId', 'toName'),
+    owed: aggregateByPerson(owed, 'fromMemberId', 'fromName')
   };
 };
