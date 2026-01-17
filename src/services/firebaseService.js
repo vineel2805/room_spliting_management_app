@@ -74,13 +74,15 @@ export const deleteMember = async (memberId) => {
 // ============ EXPENSE OPERATIONS ============
 
 export const addExpense = async (expenseData) => {
-  const { roomId, itemName, totalAmount, date, beneficiaryIds, payments } = expenseData;
+  const { roomId, itemName, totalAmount, amount, date, beneficiaryIds, beneficiaries, payments } = expenseData;
+  
+  const finalAmount = totalAmount || amount;
   
   // Create main expense document
   const expenseRef = await addDoc(collection(db, 'expenses'), {
     roomId,
     itemName,
-    totalAmount: parseFloat(totalAmount),
+    totalAmount: parseFloat(finalAmount),
     date: Timestamp.fromDate(new Date(date)),
     createdAt: Timestamp.now()
   });
@@ -88,11 +90,23 @@ export const addExpense = async (expenseData) => {
   const expenseId = expenseRef.id;
   
   // Add beneficiaries (who should split the cost)
-  for (const memberId of beneficiaryIds) {
-    await addDoc(collection(db, 'expense_beneficiaries'), {
-      expenseId,
-      memberId
-    });
+  // Support both old format (beneficiaryIds) and new format (beneficiaries with shareAmount)
+  if (beneficiaries && beneficiaries.length > 0) {
+    for (const beneficiary of beneficiaries) {
+      await addDoc(collection(db, 'expense_beneficiaries'), {
+        expenseId,
+        memberId: beneficiary.memberId,
+        shareAmount: beneficiary.shareAmount || (parseFloat(finalAmount) / beneficiaries.length)
+      });
+    }
+  } else if (beneficiaryIds && beneficiaryIds.length > 0) {
+    for (const memberId of beneficiaryIds) {
+      await addDoc(collection(db, 'expense_beneficiaries'), {
+        expenseId,
+        memberId,
+        shareAmount: parseFloat(finalAmount) / beneficiaryIds.length
+      });
+    }
   }
   
   // Add payments (who actually paid)

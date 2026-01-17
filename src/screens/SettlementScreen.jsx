@@ -1,178 +1,156 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useRoom } from '../context/RoomContext';
-import { calculateMonthlyTotals, calculateSettlements } from '../services/calculationService';
-import GradientHeader from '../components/GradientHeader';
-import PrimaryButton from '../components/PrimaryButton';
+import { 
+  calculateMonthlyTotals, 
+  generateObligations, 
+  compressToNetBalances, 
+  calculateSettlementsFromBalances 
+} from '../services/calculationService';
 
 const SettlementScreen = () => {
+  const { roomId } = useParams();
   const navigate = useNavigate();
-  const { currentRoom, members, expenses, expenseDetails, selectedMonth, loading } = useRoom();
+  const { 
+    currentRoom, 
+    members, 
+    expenses, 
+    expenseDetails,
+    selectedMonth 
+  } = useRoom();
+
   const { beneficiariesMap, paymentsMap } = expenseDetails;
-
-  // Calculate member totals and settlements
-  const memberTotals = members.length > 0 && expenses.length > 0
-    ? calculateMonthlyTotals(expenses, members, beneficiariesMap, paymentsMap, selectedMonth.year, selectedMonth.month)
-    : {};
-
-  const settlements = Object.keys(memberTotals).length > 0
-    ? calculateSettlements(memberTotals)
-    : [];
-
-  const getInitials = (name) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-  };
-
-  const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
 
   if (!currentRoom) {
     return (
-      <div className="min-h-screen pb-20">
-        <GradientHeader title="Settlements" />
-        <div className="px-4 py-6 text-center">
-          <p className="text-gray-500 mb-4">Please select a room first</p>
-          <PrimaryButton variant="gradient" onClick={() => navigate('/')}>
-            Go to Home
-          </PrimaryButton>
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-text-secondary text-sm">Loading...</p>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen pb-20">
-      <GradientHeader title="Who Pays Whom" />
+  const memberTotals = calculateMonthlyTotals(
+    expenses, members, beneficiariesMap, paymentsMap, selectedMonth.year, selectedMonth.month
+  );
+  const obligations = generateObligations(
+    expenses, members, beneficiariesMap, paymentsMap, selectedMonth.year, selectedMonth.month
+  );
+  const netBalances = compressToNetBalances(obligations, members);
+  const settlements = calculateSettlementsFromBalances(netBalances);
 
-      <div className="px-4 py-6">
-        {/* Header Card */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm mb-6">
-          <h3 className="font-semibold text-gray-900 mb-1">Settlement Summary</h3>
-          <p className="text-sm text-gray-500">
-            For {months[selectedMonth.month]} {selectedMonth.year}
-          </p>
+  const creditors = Object.values(netBalances)
+    .filter(m => m.netBalance > 0.01)
+    .sort((a, b) => b.netBalance - a.netBalance);
+  const debtors = Object.values(netBalances)
+    .filter(m => m.netBalance < -0.01)
+    .sort((a, b) => a.netBalance - b.netBalance);
+
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  return (
+    <div className="min-h-screen bg-background pb-28">
+      {/* Header */}
+      <div className="bg-surface px-5 pt-12 pb-4 border-b border-divider">
+        <button 
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 text-text-secondary mb-3"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          <span className="text-sm">Back</span>
+        </button>
+        <h1 className="text-[22px] font-semibold text-text-primary">Settlement</h1>
+        <p className="text-xs text-text-muted mt-1">{months[selectedMonth.month]} {selectedMonth.year}</p>
+      </div>
+
+      <div className="px-5 py-6">
+        {/* Summary */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="bg-success-light rounded-card p-4">
+            <p className="text-xs text-text-muted mb-1">Total to Receive</p>
+            <p className="text-xl font-semibold text-success">
+              ₹{creditors.reduce((sum, c) => sum + c.netBalance, 0).toLocaleString('en-IN')}
+            </p>
+            <p className="text-xs text-text-muted mt-1">{creditors.length} {creditors.length === 1 ? 'person' : 'people'}</p>
+          </div>
+          <div className="bg-error-light rounded-card p-4">
+            <p className="text-xs text-text-muted mb-1">Total to Pay</p>
+            <p className="text-xl font-semibold text-error">
+              ₹{Math.abs(debtors.reduce((sum, d) => sum + d.netBalance, 0)).toLocaleString('en-IN')}
+            </p>
+            <p className="text-xs text-text-muted mt-1">{debtors.length} {debtors.length === 1 ? 'person' : 'people'}</p>
+          </div>
         </div>
 
-        {loading ? (
-          <div className="text-center py-10">
-            <p className="text-gray-500">Calculating...</p>
-          </div>
-        ) : members.length === 0 ? (
-          <div className="text-center py-10">
-            <div className="text-6xl mb-4">👥</div>
-            <p className="text-gray-500 mb-4">Add members first to see settlements</p>
-            <PrimaryButton variant="gradient" onClick={() => navigate('/members')}>
-              Add Members
-            </PrimaryButton>
-          </div>
-        ) : expenses.length === 0 ? (
-          <div className="text-center py-10">
-            <div className="text-6xl mb-4">📝</div>
-            <p className="text-gray-500 mb-4">Add expenses to see who owes whom</p>
-            <PrimaryButton variant="gradient" onClick={() => navigate('/add')}>
-              Add Expense
-            </PrimaryButton>
-          </div>
-        ) : settlements.length === 0 ? (
-          <div className="bg-green-50 rounded-2xl p-6 text-center">
-            <div className="text-5xl mb-4">✅</div>
-            <p className="text-xl font-bold text-green-700 mb-2">All Settled!</p>
-            <p className="text-green-600">
-              No payments needed. Everyone has paid their fair share this month.
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Settlements List */}
-            <div className="space-y-4 mb-6">
-              {settlements.map((settlement, index) => (
-                <div
-                  key={index}
-                  className="bg-white rounded-2xl p-5 shadow-sm"
-                >
-                  <div className="flex items-center gap-4">
-                    {/* Payer */}
-                    <div className="flex flex-col items-center flex-1">
-                      <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-bold text-lg mb-2">
-                        {getInitials(settlement.fromName)}
-                      </div>
-                      <p className="font-semibold text-gray-900 text-center text-sm">{settlement.fromName}</p>
-                      <p className="text-xs text-red-500">Pays</p>
+        {/* Settlements */}
+        <div className="mb-6">
+          <h3 className="text-base font-medium text-text-primary mb-3">
+            Optimal Settlements ({settlements.length})
+          </h3>
+          
+          {settlements.length === 0 ? (
+            <div className="bg-surface rounded-card p-8 shadow-card text-center">
+              <div className="w-16 h-16 bg-success-light rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <p className="text-base font-medium text-text-primary mb-1">All Settled!</p>
+              <p className="text-sm text-text-secondary">Everyone is even for this month.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {settlements.map((s, idx) => (
+                <div key={idx} className="bg-surface rounded-card p-4 shadow-card">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-error-light flex items-center justify-center text-error font-semibold text-sm">
+                      {(s.fromName || 'U').charAt(0).toUpperCase()}
                     </div>
-                    
-                    {/* Amount & Arrow */}
-                    <div className="flex flex-col items-center">
-                      <div className="bg-gradient-to-r from-red-500 to-green-500 text-white px-4 py-2 rounded-full font-bold text-lg">
-                        ₹{settlement.amount.toLocaleString('en-IN')}
-                      </div>
-                      <div className="text-2xl text-gray-400 mt-1">→</div>
+                    <div className="flex-1 flex items-center gap-2 min-w-0">
+                      <p className="text-sm font-medium text-text-primary truncate">{s.fromName || 'Unknown'}</p>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2">
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                        <polyline points="12 5 19 12 12 19" />
+                      </svg>
+                      <p className="text-sm font-medium text-text-primary truncate">{s.toName || 'Unknown'}</p>
                     </div>
-                    
-                    {/* Receiver */}
-                    <div className="flex flex-col items-center flex-1">
-                      <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold text-lg mb-2">
-                        {getInitials(settlement.toName)}
-                      </div>
-                      <p className="font-semibold text-gray-900 text-center text-sm">{settlement.toName}</p>
-                      <p className="text-xs text-green-500">Receives</p>
+                    <div className="w-10 h-10 rounded-full bg-success-light flex items-center justify-center text-success font-semibold text-sm">
+                      {(s.toName || 'U').charAt(0).toUpperCase()}
                     </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-divider flex items-center justify-between">
+                    <span className="text-xs text-text-muted">Amount</span>
+                    <span className="text-lg font-semibold text-primary">₹{s.amount.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
               ))}
             </div>
+          )}
+        </div>
 
-            {/* Summary */}
-            <div className="bg-gray-50 rounded-2xl p-4 mb-6">
-              <p className="text-sm text-gray-600 text-center">
-                {settlements.length} payment{settlements.length !== 1 ? 's' : ''} needed to settle all balances
-              </p>
-            </div>
-          </>
-        )}
-
-        {/* Balance Details */}
-        {Object.keys(memberTotals).length > 0 && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm mb-6">
-            <h4 className="font-semibold text-gray-900 mb-3">Balance Details</h4>
-            <div className="space-y-2">
-              {Object.values(memberTotals).map(member => (
-                <div key={member.memberId} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-xs">
-                      {getInitials(member.name)}
-                    </div>
-                    <span className="font-medium text-gray-900">{member.name}</span>
-                  </div>
-                  <span className={`font-semibold ${
-                    member.balance > 0.01 
-                      ? 'text-green-600' 
-                      : member.balance < -0.01 
-                        ? 'text-red-600' 
-                        : 'text-gray-500'
+        {/* Balance List */}
+        <div>
+          <h3 className="text-base font-medium text-text-primary mb-3">Net Balances</h3>
+          <div className="bg-surface rounded-card shadow-card divide-y divide-divider overflow-hidden">
+            {Object.values(netBalances)
+              .sort((a, b) => b.netBalance - a.netBalance)
+              .map((m) => (
+                <div key={m.memberId} className="flex items-center gap-3 p-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm ${
+                    m.netBalance > 0.01 ? 'bg-success-light text-success' : m.netBalance < -0.01 ? 'bg-error-light text-error' : 'bg-background text-text-muted'
                   }`}>
-                    {member.balance > 0.01 
-                      ? `+₹${member.balance.toLocaleString('en-IN')}` 
-                      : member.balance < -0.01 
-                        ? `-₹${Math.abs(member.balance).toLocaleString('en-IN')}` 
-                        : '₹0'}
-                  </span>
+                    {(m.name || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <p className="flex-1 text-sm font-medium text-text-primary">{m.name || 'Unknown'}</p>
+                  <p className={`text-sm font-semibold ${
+                    m.netBalance > 0.01 ? 'text-success' : m.netBalance < -0.01 ? 'text-error' : 'text-text-muted'
+                  }`}>
+                    {m.netBalance > 0.01 ? '+' : ''}₹{m.netBalance.toLocaleString('en-IN')}
+                  </p>
                 </div>
               ))}
-            </div>
           </div>
-        )}
-
-        {/* How it works */}
-        <div className="bg-blue-50 rounded-2xl p-4">
-          <h4 className="font-medium text-blue-900 mb-2">💡 How this works</h4>
-          <ul className="text-sm text-blue-800 space-y-2">
-            <li><strong>Should Pay</strong> = Your share of all expenses you used</li>
-            <li><strong>Actually Paid</strong> = Total money you spent</li>
-            <li><strong>Positive balance (+)</strong> = You paid more, others owe you</li>
-            <li><strong>Negative balance (-)</strong> = You paid less, you owe others</li>
-          </ul>
         </div>
       </div>
     </div>
