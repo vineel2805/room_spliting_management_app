@@ -10,11 +10,11 @@ import MemberDetailModal from '../components/MemberDetailModal';
 const HomeScreen = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { 
-    currentRoom, 
-    rooms, 
-    members, 
-    expenses, 
+  const {
+    currentRoom,
+    rooms,
+    members,
+    expenses,
     expenseDetails,
     loading,
     error,
@@ -155,7 +155,7 @@ const HomeScreen = () => {
                   <p className="text-xs font-medium text-text-primary truncate max-w-[120px]">
                     {user.displayName || user.email?.split('@')[0]}
                   </p>
-                  <button 
+                  <button
                     onClick={signOut}
                     className="text-xs text-text-muted hover:text-error"
                   >
@@ -163,9 +163,9 @@ const HomeScreen = () => {
                   </button>
                 </div>
                 {user.photoURL ? (
-                  <img 
-                    src={user.photoURL} 
-                    alt="Profile" 
+                  <img
+                    src={user.photoURL}
+                    alt="Profile"
                     className="w-10 h-10 rounded-full border-2 border-primary"
                   />
                 ) : (
@@ -177,7 +177,7 @@ const HomeScreen = () => {
             )}
           </div>
         </div>
-        
+
         <div className="px-5 py-6">
           {(error || actionError) && (
             <div className="bg-error-light text-error p-4 rounded-card mb-4 text-sm">
@@ -186,7 +186,7 @@ const HomeScreen = () => {
           )}
 
           <h2 className="text-base font-medium text-text-primary mb-4">Your Rooms</h2>
-          
+
           {loading ? (
             <div className="space-y-3">
               {[1, 2].map(i => (
@@ -233,13 +233,13 @@ const HomeScreen = () => {
           <div className="space-y-3">
             {!showCreateRoom && !showJoinRoom ? (
               <>
-                <button 
+                <button
                   onClick={() => setShowCreateRoom(true)}
                   className="w-full h-12 rounded-button bg-primary text-white text-sm font-medium hover:bg-primary/90 active:scale-[0.99] transition-all"
                 >
                   + Create New Room
                 </button>
-                <button 
+                <button
                   onClick={() => setShowJoinRoom(true)}
                   className="w-full h-12 rounded-button bg-surface border border-divider text-text-primary text-sm font-medium hover:bg-background active:scale-[0.99] transition-all"
                 >
@@ -264,7 +264,7 @@ const HomeScreen = () => {
                     <p className="text-xs text-text-muted mb-4">
                       They'll also need the password you set to join.
                     </p>
-                    <button 
+                    <button
                       onClick={handleCloseCreateModal}
                       className="w-full h-11 rounded-button bg-primary text-white text-sm font-medium"
                     >
@@ -294,13 +294,13 @@ const HomeScreen = () => {
                       Share the room code and password with people you want to add.
                     </p>
                     <div className="flex gap-3">
-                      <button 
+                      <button
                         onClick={handleCloseCreateModal}
                         className="flex-1 h-11 rounded-button border border-divider text-text-secondary text-sm font-medium hover:bg-background transition-colors"
                       >
                         Cancel
                       </button>
-                      <button 
+                      <button
                         onClick={handleCreateRoom}
                         disabled={!newRoomName.trim() || !newRoomPassword.trim() || creating}
                         className="flex-1 h-11 rounded-button bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
@@ -332,13 +332,13 @@ const HomeScreen = () => {
                   className="w-full px-4 py-3 bg-background border border-divider rounded-button text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
                 />
                 <div className="flex gap-3">
-                  <button 
+                  <button
                     onClick={() => { setShowJoinRoom(false); setJoinCode(''); setJoinPassword(''); setActionError(null); }}
                     className="flex-1 h-11 rounded-button border border-divider text-text-secondary text-sm font-medium hover:bg-background transition-colors"
                   >
                     Cancel
                   </button>
-                  <button 
+                  <button
                     onClick={handleJoinRoom}
                     disabled={joinCode.length !== 6 || !joinPassword.trim() || joining}
                     className="flex-1 h-11 rounded-button bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
@@ -388,11 +388,10 @@ const HomeScreen = () => {
               <button
                 key={index}
                 onClick={() => setSelectedMonth(prev => ({ ...prev, month: index }))}
-                className={`flex-1 min-w-[40px] py-2 text-xs font-medium rounded-lg transition-all ${
-                  selectedMonth.month === index
+                className={`flex-1 min-w-[40px] py-2 text-xs font-medium rounded-lg transition-all ${selectedMonth.month === index
                     ? 'bg-surface text-text-primary shadow-sm'
                     : 'text-text-muted hover:text-text-secondary'
-                }`}
+                  }`}
               >
                 {month}
               </button>
@@ -433,7 +432,7 @@ const HomeScreen = () => {
           <div className="bg-primary-light rounded-card p-5 mb-6">
             <p className="text-sm font-medium text-primary mb-1">Add members first</p>
             <p className="text-xs text-text-secondary mb-4">You need members before tracking expenses.</p>
-            <button 
+            <button
               onClick={() => navigate('/members')}
               className="h-10 px-5 rounded-button bg-primary text-white text-sm font-medium"
             >
@@ -444,7 +443,7 @@ const HomeScreen = () => {
           <div className="bg-surface border border-divider rounded-card p-5 mb-6">
             <p className="text-sm font-medium text-text-primary mb-1">No expenses yet</p>
             <p className="text-xs text-text-secondary mb-4">Start adding expenses to track spending.</p>
-            <button 
+            <button
               onClick={() => navigate('/add')}
               className="h-10 px-5 rounded-button bg-primary text-white text-sm font-medium"
             >
@@ -458,40 +457,39 @@ const HomeScreen = () => {
           <>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-base font-medium text-text-primary">Balances</h3>
-              <button 
+              <button
                 onClick={() => navigate('/settle/' + currentRoom.id)}
                 className="text-xs font-medium text-primary"
               >
                 Settle up →
               </button>
             </div>
-            
+
             <div className="bg-surface rounded-card shadow-card divide-y divide-divider overflow-hidden">
               {Object.values(memberTotals).map(member => (
-                <button 
-                  key={member.memberId} 
+                <button
+                  key={member.memberId}
                   className="w-full flex items-center gap-4 p-4 hover:bg-background/50 active:bg-background transition-colors text-left"
                   onClick={() => setSelectedMember(member)}
                 >
                   <div className="w-11 h-11 rounded-full bg-primary-light flex items-center justify-center text-primary font-semibold">
                     {member.name.charAt(0).toUpperCase()}
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-text-primary truncate">{member.name}</p>
                     <p className="text-xs text-text-muted">
                       Paid ₹{member.totalSpends.toLocaleString('en-IN')}
                     </p>
                   </div>
-                  
+
                   <div className="text-right">
-                    <p className={`text-sm font-semibold ${
-                      member.balance > 0.01 ? 'text-success' : member.balance < -0.01 ? 'text-error' : 'text-text-muted'
-                    }`}>
-                      {member.balance > 0.01 
-                        ? `+₹${member.balance.toLocaleString('en-IN')}` 
-                        : member.balance < -0.01 
-                          ? `-₹${Math.abs(member.balance).toLocaleString('en-IN')}` 
+                    <p className={`text-sm font-semibold ${member.balance > 0.01 ? 'text-success' : member.balance < -0.01 ? 'text-error' : 'text-text-muted'
+                      }`}>
+                      {member.balance > 0.01
+                        ? `+₹${member.balance.toLocaleString('en-IN')}`
+                        : member.balance < -0.01
+                          ? `-₹${Math.abs(member.balance).toLocaleString('en-IN')}`
                           : '₹0'}
                     </p>
                     <p className="text-xs text-text-muted">
