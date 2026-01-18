@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRoom } from '../context/RoomContext';
 import { useAuth } from '../context/AuthContext';
-import { calculateMonthlyTotals, calculateRoomTotal } from '../services/calculationService';
+import { calculateMonthlyTotals, calculateRoomTotal, adjustMemberTotalsWithSettlements } from '../services/calculationService';
 import { createRoomWithAuth, joinRoomWithCode, getUserRooms } from '../services/authService';
+import { getSettlementsByRoom } from '../services/firebaseService';
 import MemberDetailModal from '../components/MemberDetailModal';
 
 const HomeScreen = () => {
@@ -35,6 +36,7 @@ const HomeScreen = () => {
   const [actionError, setActionError] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
   const [userRooms, setUserRooms] = useState([]);
+  const [settlements, setSettlements] = useState([]);
 
   const { beneficiariesMap, paymentsMap } = expenseDetails;
 
@@ -49,8 +51,30 @@ const HomeScreen = () => {
     loadUserRooms();
   }, [user]);
 
-  const memberTotals = members.length > 0 && expenses.length > 0
+  // Load settlements for the current room and month
+  useEffect(() => {
+    const loadSettlements = async () => {
+      if (currentRoom) {
+        const roomSettlements = await getSettlementsByRoom(
+          currentRoom.id,
+          selectedMonth.year,
+          selectedMonth.month
+        );
+        setSettlements(roomSettlements);
+      } else {
+        setSettlements([]);
+      }
+    };
+    loadSettlements();
+  }, [currentRoom, selectedMonth]);
+
+  const rawMemberTotals = members.length > 0 && expenses.length > 0
     ? calculateMonthlyTotals(expenses, members, beneficiariesMap, paymentsMap, selectedMonth.year, selectedMonth.month)
+    : {};
+
+  // Adjust member totals with settlements
+  const memberTotals = Object.keys(rawMemberTotals).length > 0
+    ? adjustMemberTotalsWithSettlements(rawMemberTotals, settlements)
     : {};
 
   const roomTotal = expenses.length > 0

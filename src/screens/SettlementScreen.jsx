@@ -62,7 +62,32 @@ const SettlementScreen = () => {
   const obligations = generateObligations(
     expenses, members, beneficiariesMap, paymentsMap, selectedMonth.year, selectedMonth.month
   );
-  const netBalances = compressToNetBalances(obligations, members);
+  const rawNetBalances = compressToNetBalances(obligations, members);
+  
+  // Adjust net balances based on recorded settlements
+  const netBalances = { ...rawNetBalances };
+  Object.keys(netBalances).forEach(key => {
+    netBalances[key] = { ...netBalances[key] };
+  });
+  
+  // Apply settlements to adjust balances
+  settledPayments.forEach(settlement => {
+    const { fromMemberId, toMemberId, amount } = settlement;
+    // Payer's balance increases (they paid their debt)
+    if (netBalances[fromMemberId]) {
+      netBalances[fromMemberId].netBalance += amount;
+    }
+    // Receiver's balance decreases (they received what was owed)
+    if (netBalances[toMemberId]) {
+      netBalances[toMemberId].netBalance -= amount;
+    }
+  });
+  
+  // Round adjusted balances
+  Object.values(netBalances).forEach(member => {
+    member.netBalance = Math.round(member.netBalance * 100) / 100;
+  });
+  
   const settlements = calculateSettlementsFromBalances(netBalances);
 
   const creditors = Object.values(netBalances)

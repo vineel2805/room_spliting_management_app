@@ -581,3 +581,36 @@ export const getMemberObligations = (memberId, obligations) => {
     owed: aggregateByPerson(owed, 'fromMemberId', 'fromName')
   };
 };
+
+/**
+ * Adjust member totals by subtracting recorded settlements
+ * @param {Object} memberTotals - Original member totals from calculateMonthlyTotals
+ * @param {Array} settlements - Array of settlement records from Firestore
+ * @returns {Object} Adjusted member totals
+ */
+export const adjustMemberTotalsWithSettlements = (memberTotals, settlements) => {
+  // Deep clone the member totals
+  const adjusted = {};
+  Object.keys(memberTotals).forEach(key => {
+    adjusted[key] = { ...memberTotals[key] };
+  });
+  
+  // Apply each settlement
+  settlements.forEach(settlement => {
+    const { fromMemberId, toMemberId, amount } = settlement;
+    
+    // Payer's balance increases (they paid off their debt)
+    if (adjusted[fromMemberId]) {
+      adjusted[fromMemberId].balance += amount;
+      adjusted[fromMemberId].balance = Math.round(adjusted[fromMemberId].balance * 100) / 100;
+    }
+    
+    // Receiver's balance decreases (they received what was owed)
+    if (adjusted[toMemberId]) {
+      adjusted[toMemberId].balance -= amount;
+      adjusted[toMemberId].balance = Math.round(adjusted[toMemberId].balance * 100) / 100;
+    }
+  });
+  
+  return adjusted;
+};

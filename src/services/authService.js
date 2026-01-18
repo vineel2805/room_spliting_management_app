@@ -176,6 +176,7 @@ export const getRoomByCode = async (code) => {
 
 /**
  * Calculate a member's overall balance across ALL expenses in a room
+ * Takes into account recorded settlements
  * @returns {number} Balance (positive = gets back, negative = owes)
  */
 export const calculateMemberOverallBalance = async (roomId, memberId) => {
@@ -205,11 +206,9 @@ export const calculateMemberOverallBalance = async (roomId, memberId) => {
     // Calculate member's share (what they should pay)
     const isBeneficiary = beneficiaries.find(b => b.memberId === memberId);
     if (isBeneficiary) {
-      // Check if custom share amount exists
       if (isBeneficiary.shareAmount !== undefined && isBeneficiary.shareAmount !== null) {
         totalShare += isBeneficiary.shareAmount;
       } else {
-        // Equal split
         const sharePerPerson = expense.totalAmount / beneficiaries.length;
         totalShare += sharePerPerson;
       }
@@ -220,8 +219,33 @@ export const calculateMemberOverallBalance = async (roomId, memberId) => {
     totalSpends += memberPayments.reduce((sum, p) => sum + p.paidAmount, 0);
   }
   
-  // Balance = what they paid - what they owe
-  const balance = totalSpends - totalShare;
+  // Calculate balance from expenses
+  let balance = totalSpends - totalShare;
+  
+  // Now account for settlements
+  // Get settlements where this member RECEIVED money (reduces their positive balance)
+  const receivedQuery = await getDocs(
+    query(collection(db, 'settlements'), 
+      where('roomId', '==', roomId),
+      where('toMemberId', '==', memberId)
+    )
+  );
+  const receivedAmount = receivedQuery.docs.reduce((sum, doc) => sum + doc.data().amount, 0);
+  
+  // Get settlements where this member PAID money (reduces their negative balance)
+  const paidQuery = await getDocs(
+    query(collection(db, 'settlements'), 
+      where('roomId', '==', roomId),
+      where('fromMemberId', '==', memberId)
+    )
+  );
+  const paidAmount = paidQuery.docs.reduce((sum, doc) => sum + doc.data().amount, 0);
+  
+  // Adjust balance:
+  // - If they received settlement money, reduce what they're owed
+  // - If they paid settlement money, reduce what they owe
+  balance = balance - receivedAmount + paidAmount;
+  
   return Math.round(balance * 100) / 100;
 };
 
