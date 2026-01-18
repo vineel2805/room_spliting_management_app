@@ -1,4 +1,4 @@
-# Split - Expense Sharing App
+## Split - Expense Sharing App
 
 A modern, Splitwise-like expense sharing application built with React and Tailwind CSS.
 
