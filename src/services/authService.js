@@ -14,7 +14,9 @@ import {
   where, 
   Timestamp,
   updateDoc,
-  arrayUnion
+  arrayUnion,
+  arrayRemove,
+  deleteDoc
 } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
@@ -170,4 +172,114 @@ export const getRoomByCode = async (code) => {
   
   const roomDoc = roomQuery.docs[0];
   return { id: roomDoc.id, ...roomDoc.data() };
+};
+
+/**
+ * Calculate a member's overall balance across ALL expenses in a room
+ * @returns {number} Balance (positive = gets back, negative = owes)
+ */
+export const calculateMemberOverallBalance = async (roomId, memberId) => {
+  // Get all expenses for this room
+  const expensesQuery = await getDocs(
+    query(collection(db, 'expenses'), where('roomId', '==', roomId))
+  );
+  
+  let totalSpends = 0;  // What they paid
+  let totalShare = 0;   // What they owe
+  
+  for (const expenseDoc of expensesQuery.docs) {
+    const expense = expenseDoc.data();
+    
+    // Get beneficiaries for this expense
+    const beneficiariesQuery = await getDocs(
+      query(collection(db, 'beneficiaries'), where('expenseId', '==', expenseDoc.id))
+    );
+    const beneficiaries = beneficiariesQuery.docs.map(d => d.data());
+    
+    // Get payments for this expense
+    const paymentsQuery = await getDocs(
+      query(collection(db, 'payments'), where('expenseId', '==', expenseDoc.id))
+    );
+    const payments = paymentsQuery.docs.map(d => d.data());
+    
+    // Calculate member's share (what they should pay)
+    const isBeneficiary = beneficiaries.find(b => b.memberId === memberId);
+    if (isBeneficiary) {
+      // Check if custom share amount exists
+      if (isBeneficiary.shareAmount !== undefined && isBeneficiary.shareAmount !== null) {
+        totalShare += isBeneficiary.shareAmount;
+      } else {
+        // Equal split
+        const sharePerPerson = expense.totalAmount / beneficiaries.length;
+        totalShare += sharePerPerson;
+      }
+    }
+    
+    // Calculate member's spends (what they actually paid)
+    const memberPayments = payments.filter(p => p.memberId === memberId);
+    totalSpends += memberPayments.reduce((sum, p) => sum + p.paidAmount, 0);
+  }
+  
+  // Balance = what they paid - what they owe
+  const balance = totalSpends - totalShare;
+  return Math.round(balance * 100) / 100;
+};
+
+/**
+ * Leave a room - only allowed if balance is settled (zero)
+ */
+export const leaveRoom = async (roomId, user) => {
+  if (!user) throw new Error('Must be logged in to leave a room');
+  
+  // Get room data
+  const roomRef = doc(db, 'rooms', roomId);
+  const roomSnap = await getDoc(roomRef);
+  
+  if (!roomSnap.exists()) {
+    throw new Error('Room not found');
+  }
+  
+  const roomData = roomSnap.data();
+  
+  // Find user's member document in this room
+  const memberQuery = await getDocs(
+    query(
+      collection(db, 'members'), 
+      where('roomId', '==', roomId),
+      where('oderId', '==', user.uid)
+    )
+  );
+  
+  if (memberQuery.empty) {
+    throw new Error('You are not a member of this room');
+  }
+  
+  const memberDoc = memberQuery.docs[0];
+  const memberId = memberDoc.id;
+  
+  // Check balance across ALL expenses
+  const balance = await calculateMemberOverallBalance(roomId, memberId);
+  
+  if (Math.abs(balance) > 0.01) {
+    if (balance > 0) {
+      throw new Error(`You cannot leave yet. You are owed ₹${balance.toLocaleString('en-IN')}. Please settle up first.`);
+    } else {
+      throw new Error(`You cannot leave yet. You owe ₹${Math.abs(balance).toLocaleString('en-IN')}. Please settle up first.`);
+    }
+  }
+  
+  // Check if user is the creator and only member
+  if (roomData.createdBy === user.uid && roomData.memberUids?.length === 1) {
+    throw new Error('You are the only member. Delete the room instead of leaving.');
+  }
+  
+  // Remove user from room's memberUids
+  await updateDoc(roomRef, {
+    memberUids: arrayRemove(user.uid)
+  });
+  
+  // Delete member document
+  await deleteDoc(doc(db, 'members', memberId));
+  
+  return true;
 };

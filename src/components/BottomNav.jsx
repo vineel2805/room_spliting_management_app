@@ -49,13 +49,13 @@ const BottomNav = () => {
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50 pointer-events-none">
       {/* Floating Pill Navigation */}
-      <nav className="pointer-events-auto bg-white rounded-[28px] shadow-[0_4px_24px_rgba(0,0,0,0.12)] mx-auto max-w-sm flex items-center h-16 px-2 relative">
+      <nav className="pointer-events-auto bg-surface rounded-[28px] shadow-card mx-auto max-w-sm flex items-center h-16 px-2 relative border border-divider">
         
         {/* Home */}
         <button
           onClick={() => navigate('/')}
           className={`flex-1 flex items-center justify-center py-3 transition-colors ${
-            isActive('/') ? 'text-primary' : 'text-gray-400'
+            isActive('/') ? 'text-primary' : 'text-text-muted'
           }`}
         >
           <HomeIcon active={isActive('/')} />
@@ -65,7 +65,7 @@ const BottomNav = () => {
         <button
           onClick={() => navigate('/expenses')}
           className={`flex-1 flex items-center justify-center py-3 transition-colors ${
-            isActive('/expenses') ? 'text-primary' : 'text-gray-400'
+            isActive('/expenses') ? 'text-primary' : 'text-text-muted'
           }`}
         >
           <ExpensesIcon active={isActive('/expenses')} />
@@ -85,7 +85,7 @@ const BottomNav = () => {
         <button
           onClick={() => navigate('/members')}
           className={`flex-1 flex items-center justify-center py-3 transition-colors ${
-            isActive('/members') ? 'text-primary' : 'text-gray-400'
+            isActive('/members') ? 'text-primary' : 'text-text-muted'
           }`}
         >
           <MembersIcon active={isActive('/members')} />
@@ -95,7 +95,7 @@ const BottomNav = () => {
         <button
           onClick={() => navigate('/settle/room')}
           className={`flex-1 flex items-center justify-center py-3 transition-colors ${
-            isActive('/settle') ? 'text-primary' : 'text-gray-400'
+            isActive('/settle') ? 'text-primary' : 'text-text-muted'
           }`}
         >
           <SettleIcon active={isActive('/settle')} />

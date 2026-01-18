@@ -4,6 +4,32 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Light Mode (Default) */
+:root {
+  --color-primary-light: #FFF7ED;
+  --color-background: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #64748B;
+  --color-text-muted: #94A3B8;
+  --color-success-light: #F0FDF4;
+  --color-error-light: #FEF2F2;
+  --color-divider: #E2E8F0;
+}
+
+/* Dark Mode - Elegant & Professional */
+.dark {
+  --color-primary-light: rgba(255, 122, 69, 0.12);
+  --color-background: #09090B;
+  --color-surface: #18181B;
+  --color-text-primary: #FAFAFA;
+  --color-text-secondary: #A1A1AA;
+  --color-text-muted: #71717A;
+  --color-success-light: rgba(34, 197, 94, 0.12);
+  --color-error-light: rgba(239, 68, 68, 0.12);
+  --color-divider: #27272A;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -14,14 +40,16 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #F8FAFC;
-  color: #0F172A;
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 #root {
   min-height: 100vh;
 }
 
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 4px;
 }
@@ -31,21 +59,23 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #E2E8F0;
+  background: var(--color-divider);
   border-radius: 4px;
 }
 
+/* Skeleton Loading */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #F1F5F9 25%, #E2E8F0 50%, #F1F5F9 75%);
+  background: linear-gradient(90deg, var(--color-divider) 25%, var(--color-surface) 50%, var(--color-divider) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
+/* Animations */
 @keyframes slideUp {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
@@ -53,4 +83,13 @@ body {
 
 .animate-slide-up {
   animation: slideUp 0.3s ease-out;
+}
+
+/* Dark mode shadow adjustments */
+.dark .shadow-card {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.4);
+}
+
+.dark .shadow-dock {
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
 }

@@ -9,6 +9,7 @@ import AddExpenseScreen from './screens/AddExpenseScreen';
 import MembersScreen from './screens/MembersScreen';
 import SettlementScreen from './screens/SettlementScreen';
 import ExpenseListScreen from './screens/ExpenseListScreen';
+import ProfileScreen from './screens/ProfileScreen';
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -87,6 +88,11 @@ function AppContent() {
         <Route path="/groups" element={
           <ProtectedRoute>
             <HomeScreen />
+          </ProtectedRoute>
+        } />
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <ProfileScreen />
           </ProtectedRoute>
         } />
       </Routes>

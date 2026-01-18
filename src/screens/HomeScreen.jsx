@@ -343,10 +343,17 @@ const HomeScreen = () => {
             )}
           </div>
           <button
-            onClick={() => selectRoom(null)}
-            className="h-9 px-4 rounded-full bg-background text-text-secondary text-xs font-medium hover:bg-divider transition-colors"
+            onClick={() => navigate('/profile')}
+            className="w-10 h-10 rounded-full bg-background flex items-center justify-center hover:bg-divider transition-colors overflow-hidden"
           >
-            Change
+            {user?.photoURL ? (
+              <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-secondary">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            )}
           </button>
         </div>
 
