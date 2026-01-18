@@ -4,30 +4,30 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Light Mode (Default) */
+/* CSS Variables for theming */
 :root {
-  --color-primary-light: #FFF7ED;
-  --color-background: #F8FAFC;
+  --color-bg: #F8FAFC;
   --color-surface: #FFFFFF;
-  --color-text-primary: #0F172A;
+  --color-text: #0F172A;
   --color-text-secondary: #64748B;
   --color-text-muted: #94A3B8;
-  --color-success-light: #F0FDF4;
-  --color-error-light: #FEF2F2;
-  --color-divider: #E2E8F0;
+  --color-border: #E2E8F0;
+  --color-primary-bg: #FFF7ED;
+  --color-success-bg: #F0FDF4;
+  --color-error-bg: #FEF2F2;
 }
 
 /* Dark Mode - Elegant & Professional */
 .dark {
-  --color-primary-light: rgba(255, 122, 69, 0.12);
-  --color-background: #09090B;
+  --color-bg: #09090B;
   --color-surface: #18181B;
-  --color-text-primary: #FAFAFA;
+  --color-text: #FAFAFA;
   --color-text-secondary: #A1A1AA;
   --color-text-muted: #71717A;
-  --color-success-light: rgba(34, 197, 94, 0.12);
-  --color-error-light: rgba(239, 68, 68, 0.12);
-  --color-divider: #27272A;
+  --color-border: #27272A;
+  --color-primary-bg: rgba(255, 122, 69, 0.15);
+  --color-success-bg: rgba(34, 197, 94, 0.15);
+  --color-error-bg: rgba(239, 68, 68, 0.15);
 }
 
 * {
@@ -40,13 +40,55 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--color-background);
-  color: var(--color-text-primary);
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* ===== OVERRIDE TAILWIND WITH CSS VARIABLES ===== */
+@layer utilities {
+  /* Background Colors */
+  .bg-background {
+    background-color: var(--color-bg) !important;
+  }
+  .bg-surface {
+    background-color: var(--color-surface) !important;
+  }
+  .bg-primary-light {
+    background-color: var(--color-primary-bg) !important;
+  }
+  .bg-success-light {
+    background-color: var(--color-success-bg) !important;
+  }
+  .bg-error-light {
+    background-color: var(--color-error-bg) !important;
+  }
+
+  /* Text Colors */
+  .text-text-primary {
+    color: var(--color-text) !important;
+  }
+  .text-text-secondary {
+    color: var(--color-text-secondary) !important;
+  }
+  .text-text-muted {
+    color: var(--color-text-muted) !important;
+  }
+
+  /* Border Colors */
+  .border-divider {
+    border-color: var(--color-border) !important;
+  }
+  .border-border {
+    border-color: var(--color-border) !important;
+  }
+
+  /* Divide Colors */
+  .divide-divider > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--color-border) !important;
+  }
 }
 
 /* Scrollbar */
@@ -59,7 +101,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-divider);
+  background: var(--color-border);
   border-radius: 4px;
 }
 
@@ -70,7 +112,7 @@ body {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, var(--color-divider) 25%, var(--color-surface) 50%, var(--color-divider) 75%);
+  background: linear-gradient(90deg, var(--color-border) 25%, var(--color-surface) 50%, var(--color-border) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
@@ -92,4 +134,23 @@ body {
 
 .dark .shadow-dock {
   box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
+}
+
+/* Input styling for dark mode */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* Modal backdrop */
+.dark .bg-black\/40 {
+  background-color: rgba(0, 0, 0, 0.6);
 }
