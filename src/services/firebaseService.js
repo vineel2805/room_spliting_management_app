@@ -193,3 +193,70 @@ export const loadAllExpenseDetails = async (expenses) => {
   
   return { beneficiariesMap, paymentsMap };
 };
+
+// ============ SETTLEMENT OPERATIONS ============
+
+export const recordSettlement = async (settlementData) => {
+  const { roomId, fromMemberId, fromMemberName, toMemberId, toMemberName, amount, settledByUid, year, month } = settlementData;
+  
+  const settlementRef = await addDoc(collection(db, 'settlements'), {
+    roomId,
+    fromMemberId,
+    fromMemberName,
+    toMemberId,
+    toMemberName,
+    amount: parseFloat(amount),
+    settledByUid,
+    settledAt: Timestamp.now(),
+    year,
+    month
+  });
+  
+  return settlementRef.id;
+};
+
+export const getSettlementsByRoom = async (roomId, year = null, month = null) => {
+  const q = query(
+    collection(db, 'settlements'),
+    where('roomId', '==', roomId)
+  );
+  const querySnapshot = await getDocs(q);
+  let settlements = querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }));
+  
+  if (year !== null && month !== null) {
+    settlements = settlements.filter(s => s.year === year && s.month === month);
+  }
+  
+  return settlements.sort((a, b) => {
+    const dateA = a.settledAt?.toDate?.() || new Date();
+    const dateB = b.settledAt?.toDate?.() || new Date();
+    return dateB - dateA;
+  });
+};
+
+export const getSettlementsByMember = async (memberId) => {
+  let settlements = [];
+  
+  const receiverQuery = await getDocs(
+    query(collection(db, 'settlements'), where('toMemberId', '==', memberId))
+  );
+  settlements.push(...receiverQuery.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+  
+  const payerQuery = await getDocs(
+    query(collection(db, 'settlements'), where('fromMemberId', '==', memberId))
+  );
+  payerQuery.docs.forEach(doc => {
+    if (!settlements.find(s => s.id === doc.id)) {
+      settlements.push({ id: doc.id, ...doc.data() });
+    }
+  });
+  
+  return settlements.sort((a, b) => {
+    const dateA = a.settledAt?.toDate?.() || new Date();
+    const dateB = b.settledAt?.toDate?.() || new Date();
+    return dateB - dateA;
+  });
+};

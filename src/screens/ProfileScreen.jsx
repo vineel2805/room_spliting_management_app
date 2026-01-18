@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRoom } from '../context/RoomContext';
 import { getUserRooms, leaveRoom, calculateMemberOverallBalance } from '../services/authService';
+import { getSettlementsByMember } from '../services/firebaseService';
 
 const ProfileScreen = () => {
   const navigate = useNavigate();
@@ -17,6 +18,8 @@ const ProfileScreen = () => {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [memberBalance, setMemberBalance] = useState(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [settlementHistory, setSettlementHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   useEffect(() => {
     const loadRooms = async () => {
@@ -44,6 +47,25 @@ const ProfileScreen = () => {
       }
     };
     loadBalance();
+  }, [currentRoom, user, members]);
+
+  // Load settlement history
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (currentRoom && user && members.length > 0) {
+        setHistoryLoading(true);
+        const userMember = members.find(m => m.oderId === user.uid);
+        if (userMember) {
+          const history = await getSettlementsByMember(userMember.id);
+          const roomHistory = history.filter(h => h.roomId === currentRoom.id);
+          setSettlementHistory(roomHistory);
+        }
+        setHistoryLoading(false);
+      } else {
+        setHistoryLoading(false);
+      }
+    };
+    loadHistory();
   }, [currentRoom, user, members]);
 
   useEffect(() => {
@@ -84,6 +106,8 @@ const ProfileScreen = () => {
   };
 
   const canLeaveRoom = memberBalance !== null && Math.abs(memberBalance) <= 0.01;
+  const currentUserMember = members.find(m => m.oderId === user?.uid);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   if (!user) {
     navigate('/login');
@@ -196,6 +220,66 @@ const ProfileScreen = () => {
                 </span>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Settlement History */}
+        {currentRoom && (
+          <div>
+            <h2 className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">Settlement History</h2>
+            {historyLoading ? (
+              <div className="bg-surface rounded-card p-4 shadow-card">
+                <div className="skeleton h-12 w-full rounded mb-2" />
+                <div className="skeleton h-12 w-full rounded" />
+              </div>
+            ) : settlementHistory.length === 0 ? (
+              <div className="bg-surface rounded-card p-6 shadow-card text-center">
+                <div className="w-12 h-12 bg-background rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-muted">
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                  </svg>
+                </div>
+                <p className="text-sm text-text-muted">No settlements yet</p>
+              </div>
+            ) : (
+              <div className="bg-surface rounded-card shadow-card divide-y divide-divider overflow-hidden">
+                {settlementHistory.map((settlement) => {
+                  const isReceiver = settlement.toMemberId === currentUserMember?.id;
+                  const date = settlement.settledAt?.toDate?.() || new Date();
+                  
+                  return (
+                    <div key={settlement.id} className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${
+                            isReceiver ? 'bg-success-light text-success' : 'bg-error-light text-error'
+                          }`}>
+                            {isReceiver ? '+' : '-'}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-text-primary">
+                              {isReceiver 
+                                ? `Received from ${settlement.fromMemberName}` 
+                                : `Paid to ${settlement.toMemberName}`
+                              }
+                            </p>
+                            <p className="text-xs text-text-muted">
+                              {months[settlement.month]} {settlement.year}
+                            </p>
+                          </div>
+                        </div>
+                        <p className={`text-sm font-semibold ${isReceiver ? 'text-success' : 'text-error'}`}>
+                          {isReceiver ? '+' : '-'}₹{settlement.amount.toLocaleString('en-IN')}
+                        </p>
+                      </div>
+                      <p className="text-xs text-text-muted">
+                        Settled on {date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
