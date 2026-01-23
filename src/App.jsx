@@ -1,8 +1,10 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RoomProvider } from './context/RoomContext';
+import { ToastProvider } from './context/ToastContext';
 import BottomNav from './components/BottomNav';
+import FloatingChatButton from './components/FloatingChatButton';
 import LoginScreen from './screens/LoginScreen';
 import HomeScreen from './screens/HomeScreen';
 import AddExpenseScreen from './screens/AddExpenseScreen';
@@ -10,6 +12,7 @@ import MembersScreen from './screens/MembersScreen';
 import SettlementScreen from './screens/SettlementScreen';
 import ExpenseListScreen from './screens/ExpenseListScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import ChatScreen from './screens/ChatScreen';
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -51,6 +54,10 @@ const AuthRoute = ({ children }) => {
 
 function AppContent() {
   const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  
+  // Hide nav and chat button on chat screen
+  const isChatScreen = location.pathname === '/chat';
   
   return (
     <div className="min-h-screen bg-gray-50">
@@ -95,8 +102,14 @@ function AppContent() {
             <ProfileScreen />
           </ProtectedRoute>
         } />
+        <Route path="/chat" element={
+          <ProtectedRoute>
+            <ChatScreen />
+          </ProtectedRoute>
+        } />
       </Routes>
-      {isAuthenticated && <BottomNav />}
+      {isAuthenticated && !isChatScreen && <BottomNav />}
+      {isAuthenticated && !isChatScreen && <FloatingChatButton />}
     </div>
   );
 }
@@ -105,9 +118,11 @@ function App() {
   return (
     <AuthProvider>
       <RoomProvider>
-        <Router>
-          <AppContent />
-        </Router>
+        <ToastProvider>
+          <Router>
+            <AppContent />
+          </Router>
+        </ToastProvider>
       </RoomProvider>
     </AuthProvider>
   );

@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRoom } from '../context/RoomContext';
+import { useToast } from '../context/ToastContext';
 import ExpenseDetailModal from '../components/ExpenseDetailModal';
 
 const ExpenseListScreen = () => {
   const navigate = useNavigate();
-  const { expenses, members, expenseDetails, selectedMonth, deleteExpense, loading } = useRoom();
+  const { expenses, members, expenseDetails, selectedMonth, deleteExpense, undoDeleteExpense, clearDeletedExpense, loading } = useRoom();
+  const { showToast } = useToast();
   const { beneficiariesMap, paymentsMap } = expenseDetails;
   
   const [menuOpen, setMenuOpen] = useState(null);
@@ -31,16 +33,51 @@ const ExpenseListScreen = () => {
     return payments.map(p => getMemberName(p.memberId)).join(', ') || 'N/A';
   };
 
-  const handleDelete = async (expenseId) => {
+  const handleDelete = async (expenseId, expenseName) => {
     if (deleting) return;
     setDeleting(expenseId);
+    setMenuOpen(null);
+    
     try {
       await deleteExpense(expenseId);
+      
+      showToast({
+        message: `"${expenseName || 'Expense'}" deleted`,
+        type: 'info',
+        duration: 5000,
+        showUndo: true,
+        onUndo: async () => {
+          try {
+            await undoDeleteExpense();
+            showToast({
+              message: 'Expense restored',
+              type: 'success',
+              duration: 3000
+            });
+          } catch (err) {
+            showToast({
+              message: 'Failed to restore expense',
+              type: 'error',
+              duration: 3000
+            });
+          }
+        }
+      });
+
+      // Clear stored expense after toast duration
+      setTimeout(() => {
+        clearDeletedExpense();
+      }, 5500);
+
     } catch (err) {
       console.error('Error deleting expense:', err);
+      showToast({
+        message: 'Failed to delete expense',
+        type: 'error',
+        duration: 3000
+      });
     } finally {
       setDeleting(null);
-      setMenuOpen(null);
     }
   };
 
@@ -136,7 +173,7 @@ const ExpenseListScreen = () => {
                               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(null)} />
                               <div className="absolute right-0 top-full mt-1 bg-surface rounded-lg shadow-lg border border-divider py-1 z-20 min-w-[120px]">
                                 <button
-                                  onClick={() => handleDelete(expense.id)}
+                                  onClick={(e) => { e.stopPropagation(); handleDelete(expense.id, expense.itemName || expense.name); }}
                                   disabled={deleting === expense.id}
                                   className="w-full px-4 py-2.5 text-left text-sm text-error hover:bg-error-light transition-colors disabled:opacity-50"
                                 >

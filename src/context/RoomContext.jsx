@@ -19,6 +19,7 @@ export const RoomProvider = ({ children }) => {
   const [expenseDetails, setExpenseDetails] = useState({ beneficiariesMap: {}, paymentsMap: {} });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [deletedExpense, setDeletedExpense] = useState(null);
   
   // Selected month for dashboard
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -158,13 +159,67 @@ export const RoomProvider = ({ children }) => {
   const deleteExpense = async (expenseId) => {
     try {
       setError(null);
+      
+      // Store expense data before deletion for undo
+      const expense = expenses.find(e => e.id === expenseId);
+      const beneficiaries = expenseDetails.beneficiariesMap[expenseId] || [];
+      const payments = expenseDetails.paymentsMap[expenseId] || [];
+      
+      if (expense) {
+        setDeletedExpense({
+          expense,
+          beneficiaries,
+          payments,
+          roomId: currentRoom.id
+        });
+      }
+
       await firebaseService.deleteExpense(expenseId);
       await loadRoomData(currentRoom.id);
+      
+      return true;
     } catch (err) {
       console.error('Error deleting expense:', err);
       setError('Failed to delete expense.');
       throw err;
     }
+  };
+
+  // Restore deleted expense (undo)
+  const undoDeleteExpense = async () => {
+    if (!deletedExpense) return;
+    
+    try {
+      setError(null);
+      const { expense, beneficiaries, payments, roomId } = deletedExpense;
+      
+      // Recreate the expense
+      await firebaseService.addExpense({
+        roomId,
+        itemName: expense.itemName,
+        totalAmount: expense.totalAmount,
+        date: expense.date?.toDate?.() || expense.date,
+        beneficiaries: beneficiaries.map(b => ({
+          memberId: b.memberId,
+          shareAmount: b.shareAmount
+        })),
+        payments: payments.map(p => ({
+          memberId: p.memberId,
+          amount: p.paidAmount
+        }))
+      });
+      
+      setDeletedExpense(null);
+      await loadRoomData(roomId);
+    } catch (err) {
+      console.error('Error restoring expense:', err);
+      setError('Failed to restore expense.');
+      throw err;
+    }
+  };
+
+  const clearDeletedExpense = () => {
+    setDeletedExpense(null);
   };
 
   const refreshData = () => {
@@ -183,6 +238,7 @@ export const RoomProvider = ({ children }) => {
     loading,
     error,
     selectedMonth,
+    deletedExpense,
     
     // Actions
     createRoom,
@@ -191,6 +247,8 @@ export const RoomProvider = ({ children }) => {
     removeMember,
     addExpense,
     deleteExpense,
+    undoDeleteExpense,
+    clearDeletedExpense,
     refreshData,
     setSelectedMonth,
     loadRooms
