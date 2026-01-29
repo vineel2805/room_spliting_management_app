@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { loginWithGoogle, logout, subscribeToAuthChanges } from '../services/authService';
+import { loginWithGoogle, logout, subscribeToAuthChanges, handleRedirectResult } from '../services/authService';
 
 const AuthContext = createContext();
 
@@ -17,6 +17,17 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // Handle redirect result for native platforms (Android/iOS)
+    const checkRedirectResult = async () => {
+      try {
+        await handleRedirectResult();
+      } catch (err) {
+        console.error('Redirect result check failed:', err);
+      }
+    };
+    checkRedirectResult();
+
+    // Subscribe to auth state changes
     const unsubscribe = subscribeToAuthChanges((user) => {
       setUser(user);
       setLoading(false);

@@ -1,5 +1,7 @@
 import { 
-  signInWithPopup, 
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider, 
   signOut,
   onAuthStateChanged 
@@ -18,18 +20,50 @@ import {
   arrayRemove,
   deleteDoc
 } from 'firebase/firestore';
+import { Capacitor } from '@capacitor/core';
 import { auth, db } from '../config/firebase';
 
 const googleProvider = new GoogleAuthProvider();
 
 // ============ AUTH OPERATIONS ============
 
+/**
+ * Login with Google - automatically handles web vs native platforms
+ * Web: Uses popup (better UX)
+ * Native (Android/iOS): Uses redirect (required for Capacitor WebView)
+ */
 export const loginWithGoogle = async () => {
   try {
-    const result = await signInWithPopup(auth, googleProvider);
-    return result.user;
+    // Check if running on native platform (Android/iOS via Capacitor)
+    if (Capacitor.isNativePlatform()) {
+      // On native platforms, use redirect method (popup doesn't work well in WebView)
+      await signInWithRedirect(auth, googleProvider);
+      // The result will be handled by getRedirectResult on page load
+      return null;
+    } else {
+      // On web, use popup for better UX
+      const result = await signInWithPopup(auth, googleProvider);
+      return result.user;
+    }
   } catch (error) {
     console.error('Google login error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Handle redirect result for native platforms
+ * Call this on app initialization to complete the sign-in flow
+ */
+export const handleRedirectResult = async () => {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result) {
+      return result.user;
+    }
+    return null;
+  } catch (error) {
+    console.error('Redirect result error:', error);
     throw error;
   }
 };
@@ -93,7 +127,7 @@ export const createRoomWithAuth = async (roomName, password, user) => {
   await addDoc(collection(db, 'members'), {
     roomId: roomRef.id,
     name: user.displayName || user.email?.split('@')[0] || 'User',
-    oderId: user.uid,
+    userId: user.uid,
     email: user.email,
     photoURL: user.photoURL,
     createdAt: Timestamp.now()
@@ -136,7 +170,7 @@ export const joinRoomWithCode = async (code, password, user) => {
   await addDoc(collection(db, 'members'), {
     roomId: roomDoc.id,
     name: user.displayName || user.email?.split('@')[0] || 'User',
-    oderId: user.uid,
+    userId: user.uid,
     email: user.email,
     photoURL: user.photoURL,
     createdAt: Timestamp.now()
@@ -193,13 +227,13 @@ export const calculateMemberOverallBalance = async (roomId, memberId) => {
     
     // Get beneficiaries for this expense
     const beneficiariesQuery = await getDocs(
-      query(collection(db, 'beneficiaries'), where('expenseId', '==', expenseDoc.id))
+      query(collection(db, 'expense_beneficiaries'), where('expenseId', '==', expenseDoc.id))
     );
     const beneficiaries = beneficiariesQuery.docs.map(d => d.data());
     
     // Get payments for this expense
     const paymentsQuery = await getDocs(
-      query(collection(db, 'payments'), where('expenseId', '==', expenseDoc.id))
+      query(collection(db, 'expense_payments'), where('expenseId', '==', expenseDoc.id))
     );
     const payments = paymentsQuery.docs.map(d => d.data());
     
@@ -270,7 +304,7 @@ export const leaveRoom = async (roomId, user) => {
     query(
       collection(db, 'members'), 
       where('roomId', '==', roomId),
-      where('oderId', '==', user.uid)
+      where('userId', '==', user.uid)
     )
   );
   

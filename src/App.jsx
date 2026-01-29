@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RoomProvider } from './context/RoomContext';
 import { ToastProvider } from './context/ToastContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import BottomNav from './components/BottomNav';
 import FloatingChatButton from './components/FloatingChatButton';
 import LoginScreen from './screens/LoginScreen';
@@ -58,6 +60,46 @@ function AppContent() {
   
   // Hide nav and chat button on chat screen
   const isChatScreen = location.pathname === '/chat';
+
+  // Initialize mobile-specific features
+  useEffect(() => {
+    const initMobileFeatures = async () => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          // Import and configure StatusBar
+          const { StatusBar, Style } = await import('@capacitor/status-bar');
+          await StatusBar.setStyle({ style: Style.Light });
+          await StatusBar.setBackgroundColor({ color: '#FF7A45' });
+        } catch (e) {
+          // StatusBar plugin not available
+        }
+
+        try {
+          // Hide splash screen
+          const { SplashScreen } = await import('@capacitor/splash-screen');
+          await SplashScreen.hide();
+        } catch (e) {
+          // SplashScreen plugin not available
+        }
+
+        try {
+          // Handle Android back button
+          const { App: CapApp } = await import('@capacitor/app');
+          CapApp.addListener('backButton', ({ canGoBack }) => {
+            if (canGoBack) {
+              window.history.back();
+            } else {
+              CapApp.exitApp();
+            }
+          });
+        } catch (e) {
+          // App plugin not available
+        }
+      }
+    };
+
+    initMobileFeatures();
+  }, []);
   
   return (
     <div className="min-h-screen bg-gray-50">
@@ -116,15 +158,17 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <RoomProvider>
-        <ToastProvider>
-          <Router>
-            <AppContent />
-          </Router>
-        </ToastProvider>
-      </RoomProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <RoomProvider>
+          <ToastProvider>
+            <Router>
+              <AppContent />
+            </Router>
+          </ToastProvider>
+        </RoomProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

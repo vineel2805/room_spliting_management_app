@@ -46,7 +46,7 @@ const SettlementScreen = () => {
   }, [currentRoom, selectedMonth]);
 
   // Find current user's member ID
-  const currentUserMember = members.find(m => m.oderId === user?.uid);
+  const currentUserMember = members.find(m => m.userId === user?.uid);
 
   if (!currentRoom) {
     return (

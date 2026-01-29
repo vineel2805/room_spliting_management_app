@@ -37,7 +37,7 @@ const ProfileScreen = () => {
     const loadBalance = async () => {
       if (currentRoom && user && members.length > 0) {
         setBalanceLoading(true);
-        const userMember = members.find(m => m.oderId === user.uid);
+        const userMember = members.find(m => m.userId === user.uid);
         if (userMember) {
           const balance = await calculateMemberOverallBalance(currentRoom.id, userMember.id);
           setMemberBalance(balance);
@@ -52,7 +52,7 @@ const ProfileScreen = () => {
     const loadHistory = async () => {
       if (currentRoom && user && members.length > 0) {
         setHistoryLoading(true);
-        const userMember = members.find(m => m.oderId === user.uid);
+        const userMember = members.find(m => m.userId === user.uid);
         if (userMember) {
           const history = await getSettlementsByMember(userMember.id);
           const roomHistory = history.filter(h => h.roomId === currentRoom.id);
@@ -112,7 +112,7 @@ const ProfileScreen = () => {
   };
 
   const canLeaveRoom = memberBalance !== null && Math.abs(memberBalance) <= 0.01;
-  const currentUserMember = members.find(m => m.oderId === user?.uid);
+  const currentUserMember = members.find(m => m.userId === user?.uid);
 
   // Group history by date
   const groupHistoryByDate = (history) => {
